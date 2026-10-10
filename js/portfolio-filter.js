@@ -9,6 +9,12 @@ export class PortfolioFilter {
     this.ui = uiController;
     this.container = container ?? document.querySelector('[data-projects-container]');
     this.filterBar = filterBar ?? document.querySelector('[data-filter-bar]');
+    const filterButtons = this.filterBar ? this.filterBar.querySelectorAll('button') : document.querySelectorAll('.filter-btn');
+const portfolioItems = this.container ? this.container.querySelectorAll('.portfolio-item') : document.querySelectorAll('.portfolio-item');
+
+console.log('Filter buttons found:', filterButtons);
+console.log('Portfolio items found:', portfolioItems);
+    
     this.activeCategory = 'All';
     this.loadId = 0;
 
