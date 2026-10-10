@@ -1401,7 +1401,7 @@ td,
     .estimator {
         grid-template-columns: 1fr;
     }
-
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
     .card-grid--3,
     .card-grid--2 {
         grid-template-columns: repeat(2, 1fr);
