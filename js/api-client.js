@@ -66,8 +66,9 @@ export class ApiClient {
   // Static fallback data for serverless/static Vercel deployments
   getStaticFallback(path, method, body) {
     if (path.includes('/api/projects') && method === 'GET') {
-      return [
-        {
+      return {
+  ok: true,
+  projects: [
           id: 'bright-smile-dental',
           title: 'Bright Smile Dental',
           client: 'Dental practice, 2025',
