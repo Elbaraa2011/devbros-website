@@ -1,4 +1,3 @@
-
 /**
  * ApiClient: all server communication goes through this class.
  * Provides timeout, JSON parsing, and normalized error handling with static fallbacks.
@@ -173,29 +172,117 @@ export class ApiClient {
     }
 
     if (path.includes('/api/quote') && method === 'POST') {
-      // Temporary fallback estimate. Match the calculator's expected response.
+      // Match the backend estimator rules when API routes are unavailable.
+      const tiers = [
+        { id: 'starter', name: 'Starter', price: 600, deliveryDays: [5, 8] },
+        { id: 'growth', name: 'Growth', price: 900, deliveryDays: [8, 14] },
+        { id: 'premium', name: 'Premium', price: 1250, deliveryDays: [14, 20] }
+      ];
+
+      const pageCountPoints = [
+        { max: 4, points: 0, label: '1 to 4 pages' },
+        { max: 8, points: 2, label: '5 to 8 pages' },
+        { max: 15, points: 4, label: '9 to 15 pages' }
+      ];
+
+      const featurePoints = {
+        ecommerce: 3,
+        booking: 2,
+        blog: 1,
+        gallery: 1,
+        payments: 3,
+        analytics: 1,
+        accounts: 3
+      };
+
+      const cmsPoints = { none: 0, editable: 2, migration: 4 };
+      const timelinePoints = { standard: 0, rushed: 2 };
+      const tierThresholds = [
+        { max: 2, tier: 'starter' },
+        { max: 7, tier: 'growth' },
+        { max: Infinity, tier: 'premium' }
+      ];
+
+      const pageCount = Math.max(1, Number(body?.page_count) || 1);
+      const features = Array.isArray(body?.features) ? body.features : [];
+      const cmsNeeds = body?.cms_needs ?? 'none';
+      const timeline = body?.timeline ?? 'standard';
+
+      let points = 0;
+      const pageRule = pageCountPoints.find((rule) => pageCount <= rule.max);
+      points += pageRule?.points ?? 0;
+
+      for (const feature of features) {
+        points += featurePoints[feature] ?? 0;
+      }
+
+      points += cmsPoints[cmsNeeds] ?? 0;
+      points += timelinePoints[timeline] ?? 0;
+
+      const threshold = tierThresholds.find((rule) => points <= rule.max);
+      const tier = tiers.find((item) => item.id === threshold?.tier) ?? tiers[0];
+      const nextTier = tiers[tiers.indexOf(tier) + 1];
+
+      const projectSizes = [
+        { pageCount: 3, days: 5 },
+        { pageCount: 5, days: 8 },
+        { pageCount: 8, days: 12 },
+        { pageCount: 15, days: 20 }
+      ];
+      const projectSize =
+        projectSizes.find((size) => size.pageCount >= pageCount) ??
+        projectSizes[projectSizes.length - 1];
+
+      const deliveryDays = Math.min(
+        Math.max(projectSize.days, tier.deliveryDays[0]),
+        tier.deliveryDays[1]
+      );
+
+      const services = features.map((feature) => feature.replace(/_/g, ' '));
+      if (cmsNeeds !== 'none') {
+        services.push(
+          cmsNeeds === 'migration' ? 'framework migration' : 'self-editable pages'
+        );
+      }
+
+      const lineItems = [
+        {
+          label:
+            pageCount > 8
+              ? `${pageCount} pages`
+              : pageRule?.label ?? `${pageCount} pages`,
+          amount_cents: tier.price * 100
+        },
+        ...(services.length
+          ? [
+              {
+                label: `Includes build for: ${services.join(', ')}`,
+                amount_cents: 0
+              }
+            ]
+          : [])
+      ];
+
       return {
         success: true,
         recommended_tier: {
-          name: 'Growth Package'
+          id: tier.id,
+          name: tier.name,
+          price: tier.price,
+          priceLabel: `$${tier.price}`
         },
-        estimate_cents: 90000,
-        estimateLabel: '$900',
-        delivery_label: 'Live in 8 to 14 days',
-        line_items: [
-          {
-            label: 'Custom pages & layout',
-            amount_cents: 45000
-          },
-          {
-            label: 'Core integrations',
-            amount_cents: 25000
-          },
-          {
-            label: 'Responsive mobile design',
-            amount_cents: 20000
-          }
-        ]
+        estimate_cents: tier.price * 100,
+        estimateLabel: `From $${tier.price}`,
+        delivery_days: deliveryDays,
+        delivery_label:
+          tier.deliveryDays[0] === deliveryDays
+            ? `${tier.deliveryDays[0]} days`
+            : `${tier.deliveryDays[0]} to ${tier.deliveryDays[1]} days`,
+        points,
+        upscore_hint: nextTier
+          ? `Additional features could move this to the ${nextTier.name} tier ($${nextTier.price}).`
+          : null,
+        line_items: lineItems
       };
     }
 
